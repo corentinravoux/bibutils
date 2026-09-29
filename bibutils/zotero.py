@@ -658,12 +658,7 @@ def main(argv=None):
         if fresh:
             n = _keys.seed(lib, registry)
             print(f"key registry created: {n} existing keys recorded unchanged")
-        assigned, events, aliases = _keys.assign(lib, registry)
-    else:
-        aliases = {}
-    alias_of = {}
-    for k, i in aliases.items():
-        alias_of.setdefault(i, []).append(k)
+        assigned, events, _ = _keys.assign(lib, registry)
 
     def render(iid, ikey, added, typ, used):
         if iid not in cache:
@@ -673,11 +668,7 @@ def main(argv=None):
                  (crs[0][1] if crs else None)
         key = assigned[iid] if assigned is not None and iid in assigned \
             else item_key(flds, author, added, used)
-        text = entry(typ, key, flds, crs)
-        # old keys of the same paper (merged duplicates) stay citable
-        for old in alias_of.get(iid, []):
-            text += f"\n\n@comment{{bibutils-alias {old} -> {key}}}\n" + entry(typ, old, flds, crs)
-        return key, text
+        return key, entry(typ, key, flds, crs)
 
     os.makedirs(args.output, exist_ok=True)
 
@@ -772,8 +763,8 @@ def main(argv=None):
         _keys.save(registry, args.keys)
         labels = {"new": "new entry", "inherited": "inherited (replaces a retired record)",
                   "pinned": "pinned in Zotero", "retired": "retired (no longer exported)",
-                  "alias": "kept as alias (record merged into another)"}
-        for kind in ("new", "inherited", "pinned", "retired", "alias"):
+                  "replaced": "dropped: record merged into another, update your \\cite"}
+        for kind in ("new", "inherited", "pinned", "retired", "replaced"):
             ev = [e for e in events if e[0] == kind]
             if ev:
                 print(f"\n{len(ev)} key(s) {labels[kind]}:")

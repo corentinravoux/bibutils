@@ -58,6 +58,8 @@ Zotero item, so keys are unique across the whole library and never move:
   inherits the old key, so `\cite{...}` keeps working;
 - editing an item's date or title does not rename its key;
 - a key pinned in Zotero (Citation Key field) always wins.
+- when you merge duplicates, the key of the record that disappears is dropped
+  (no alias is written); the run lists it with the key to cite instead.
 
 Each run lists the keys given to new entries. To start a registry
 from an existing setup without moving any key:

@@ -308,9 +308,9 @@ def zotero_items(database, registry=None):
     if registry is not None:
         import copy
         from . import keys as _keys
-        assigned, _, aliases = _keys.assign(lib, copy.deepcopy(registry))
+        assigned, _, _ = _keys.assign(lib, copy.deepcopy(registry))
         items = {}
-        for iid, key in list(assigned.items()) + list((i, k) for k, i in aliases.items()):
+        for iid, key in assigned.items():
             (typ,), = lib.db.execute("select t.typeName from items i join itemTypes t "
                                      "on t.itemTypeID=i.itemTypeID where i.itemID=?", (iid,))
             items[key] = dict(iid=iid, type=typ, file=None, fields=lib.fields(iid),

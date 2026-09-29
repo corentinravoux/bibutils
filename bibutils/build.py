@@ -378,11 +378,6 @@ def trim_entries(text, source, state):
         out.append(before)
         entry_type = header[1:-1].strip().lower()
         if entry_type in {"comment", "preamble", "string"}:
-            # "@comment{bibutils-alias OLD -> NEW}": the next entry is a copy of
-            # NEW kept under an old key, not a duplicate in the library
-            m = re.search(r"bibutils-alias\s+(\S+)\s*->", body)
-            if m:
-                state.setdefault("aliases", set()).add(m.group(1))
             out.append(raw)
             continue
         key, fields = split_fields(body)
@@ -442,10 +437,9 @@ def trim_entries(text, source, state):
 
         seen, duplicates = state["fingerprints"], state["duplicates"]
         pairs = state.setdefault("dup_pairs", set())
-        is_alias = key in state.get("aliases", ())
         ids = state.setdefault("ids", {})
         ids[key] = {f: flat.get(f, "").lower() for f in DUPLICATE_KEYS}
-        for field in ([] if is_alias else DUPLICATE_KEYS):
+        for field in DUPLICATE_KEYS:
             value = flat.get(field, "").lower()
             if len(value) > 3:
                 if seen.setdefault((field, value), key) != key:
@@ -457,7 +451,7 @@ def trim_entries(text, source, state):
                                   f"same {field} as {first}  ({value})")
                         )
         norm = normalise_title(title)
-        if len(norm) > 3 and not is_alias:
+        if len(norm) > 3:
             first = seen.setdefault(("title", norm), key)
             # two papers may share a title (a code paper and its software
             # release): not duplicates when their DOI or arXiv id differ

@@ -100,11 +100,12 @@ def test_pinned_key_wins_and_a_duplicate_pin_is_refused():
         keys.assign(lib, reg)
 
 
-def test_merged_duplicate_keeps_its_key_as_alias():
+def test_merged_duplicate_reports_the_key_to_cite_instead():
     lib = library()
     lib.add(6, "FFFF6666", "Planck 2015 results. XVI. Isotropy", "2016", "Collaboration", "10.1/xvi")
     reg, k = first_run(lib)                             # twin gets collaboration_planck_2016-1
     lib.memb[1] = []                                    # the cited record is merged away
-    k, events, aliases = keys.assign(lib, reg)
-    assert aliases == {"collaboration_planck_2016": 6}  # old key still resolves, to the survivor
+    k, events, replaced = keys.assign(lib, reg)
+    assert replaced == {"collaboration_planck_2016": 6} # reported, with its replacement
+    assert "collaboration_planck_2016" not in k.values()  # but no longer exported
     assert k[6] == "collaboration_planck_2016-1"        # and no key moved
