@@ -16,6 +16,7 @@ USAGE = """bibutils <command> [options]
   verify BIB      compare BIB with the Zotero database [--online: check links]
   push            copy <prefix>_*.bib into an Overleaf clone, commit, push
   publist         compare a LaTeX publication list with INSPIRE-HEP
+  keys-seed       record the keys an older database gave, as retired keys
 
 `bibutils <command> -h` for the options of one command.
 Profiles live in ~/.config/bibutils/config.toml (see config.example.toml).
@@ -44,8 +45,10 @@ def cmd_verify(argv):
                     help="also look every arXiv id and DOI up online")
     ap.add_argument("--cache", help="directory for the online lookups (JSON)")
     ap.add_argument("--cited", help="LaTeX project directory: flag the cited entries")
+    ap.add_argument("--keys", help="citation-key registry used by the export")
     a = ap.parse_args(argv)
-    items, clashes = integrity.zotero_items(a.database)
+    from . import keys as _keys
+    items, clashes = integrity.zotero_items(a.database, _keys.load(a.keys) if a.keys else None)
     verified = None
     if a.online:
         from . import links
@@ -88,6 +91,24 @@ def cmd_publist(argv):
     return publist.main(a.recid, a.tex)
 
 
+def cmd_keys_seed(argv):
+    from . import keys, zotero
+    ap = argparse.ArgumentParser(
+        prog="bibutils keys-seed",
+        description="Record the keys an older Zotero database gave (a backup), so that "
+                    "a re-imported paper can inherit its old key and no key is reused.")
+    ap.add_argument("registry")
+    ap.add_argument("database", help="zotero.sqlite to read the keys from (e.g. a backup)")
+    ap.add_argument("--status", choices=("active", "retired"), default="retired",
+                    help="active: today's library, recorded first; retired: history")
+    a = ap.parse_args(argv)
+    reg = keys.load(a.registry)
+    n = keys.seed(zotero.Library(a.database), reg, status=a.status)
+    keys.save(reg, a.registry)
+    print(f"{n} key(s) from {a.database} recorded as {a.status}")
+    return 0
+
+
 def cmd_run(argv, profile_name=None):
     ap = argparse.ArgumentParser(
         prog="bib-hdr" if profile_name else "bibutils run",
@@ -109,20 +130,31 @@ def cmd_run(argv, profile_name=None):
 
     if not a.no_export:
         say("exporting Zotero")
-        _zotero.main(["-d", db, "-o", p["export_dir"]]
+        _zotero.main(["-d", db, "-o", p["export_dir"], "--keys", p["keys_file"]]
                      + [f"--no-{s}" for s in _zotero.OPTIONS if s in off])
     say("building")
     _build.build(p["export_dir"], p["out_dir"], p["prefix"], p["chunks"],
                  [s for s in _build.CLEANING if s in off])
     if not a.no_verify and p["chunks"] == 1:
-        from . import integrity
+        from . import integrity, keys as _keys
         say("integrity check against Zotero")
-        items, _ = integrity.zotero_items(db)
+        items, _ = integrity.zotero_items(db, _keys.load(p["keys_file"]))
         bib, problems, intended = integrity.check(
             os.path.join(p["out_dir"], f"{p['prefix']}_0.bib"), items)
         integrity.print_report(bib, problems, intended)
         if problems:
             sys.exit("error: the build altered information (above); not pushed")
+    if p.get("overleaf_repo"):
+        from .integrity import read_bib
+        built = set()
+        for i in range(p["chunks"]):
+            built |= set(read_bib(os.path.join(p["out_dir"], f"{p['prefix']}_{i}.bib")))
+        missing = sorted(cited_keys(p["overleaf_repo"]) - built)
+        say(f"cited keys: {len(cited_keys(p['overleaf_repo']))}, missing from the bib: {len(missing)}")
+        for k in missing:
+            print(f"  \\cite{{{k}}} has no entry")
+        if missing and a.push:
+            sys.exit("error: the manuscript cites keys the bibliography lacks; not pushed")
     if a.push:
         from . import overleaf
         if not p.get("overleaf_repo"):
@@ -145,7 +177,8 @@ def main(argv=None):
         return 0
     cmd, rest = argv[0], argv[1:]
     table = {"export": _zotero.main, "build": _build.main, "verify": cmd_verify,
-             "push": cmd_push, "publist": cmd_publist, "run": cmd_run}
+             "push": cmd_push, "publist": cmd_publist, "run": cmd_run,
+             "keys-seed": cmd_keys_seed}
     if cmd not in table:
         sys.exit(f"unknown command '{cmd}'\n\n{USAGE}")
     return table[cmd](rest) or 0

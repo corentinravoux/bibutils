@@ -14,6 +14,7 @@ machine-specific lives in the package itself; see config.example.toml.
     overleaf_repo = "~/Software/overleaf/<project-id>"
     branch        = "main"
     disable       = []          # cleaning steps to switch off
+    keys_file     = "~/Documents/Biblio/bibli_hdr.citekeys.json"   # key registry
 """
 import os
 import sys
@@ -26,7 +27,7 @@ else:                                   # pragma: no cover
 DEFAULT_PATH = "~/.config/bibutils/config.toml"
 PROFILE_DEFAULTS = dict(prefix="bibli", chunks=1, branch="main", disable=[],
                         commit_message="Update bibliography from Zotero export")
-PATH_KEYS = ("export_dir", "out_dir", "overleaf_repo", "database")
+PATH_KEYS = ("export_dir", "out_dir", "overleaf_repo", "database", "keys_file")
 
 
 def config_path():
@@ -53,6 +54,8 @@ def profile(name):
     for k in PATH_KEYS:
         if p.get(k):
             p[k] = os.path.expanduser(p[k])
+    # the key registry lives next to the built files unless placed elsewhere
+    p.setdefault("keys_file", os.path.join(p.get("out_dir", ""), f"{p['prefix']}.citekeys.json"))
     missing = [k for k in ("export_dir", "out_dir") if not p.get(k)]
     if missing:
         raise SystemExit(f"error: profile '{name}' lacks {', '.join(missing)}")

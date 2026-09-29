@@ -615,6 +615,9 @@ def main(argv=None):
                          "which of them duplicate an item that is filed")
     ap.add_argument("--check", metavar="DIR",
                     help="compare generated keys with real Zotero exports in DIR")
+    ap.add_argument("--keys", metavar="FILE",
+                    help="citation-key registry (bibutils.keys): one stable, unique key "
+                         "per item across all collections; created on first use")
     for step in OPTIONS:
         ap.add_argument(f"--no-{step}", dest=step.replace("-", "_"),
                         action="store_false", help=f"skip the {step} cleaning step")
@@ -645,13 +648,26 @@ def main(argv=None):
     items = sorted(lib.items(), key=lambda r: r[0])
     cache = {}
 
+    # With a registry, keys come from it (see bibutils.keys): unique across
+    # the whole library and stable, instead of allocated file by file.
+    registry, assigned = None, None
+    if args.keys and not (args.unfiled or args.check):
+        from . import keys as _keys
+        fresh = not os.path.exists(args.keys)
+        registry = _keys.load(args.keys)
+        if fresh:
+            n = _keys.seed(lib, registry)
+            print(f"key registry created: {n} existing keys recorded unchanged")
+        assigned, events = _keys.assign(lib, registry)
+
     def render(iid, ikey, added, typ, used):
         if iid not in cache:
             cache[iid] = (lib.fields(iid), lib.creators(iid))
         flds, crs = cache[iid]
         author = next((c[1] for c in crs if c[0] == "author"), None) or \
                  (crs[0][1] if crs else None)
-        key = item_key(flds, author, added, used)
+        key = assigned[iid] if assigned is not None and iid in assigned \
+            else item_key(flds, author, added, used)
         return key, entry(typ, key, flds, crs)
 
     os.makedirs(args.output, exist_ok=True)
@@ -743,6 +759,16 @@ def main(argv=None):
         print(f"  {len(rows):4d}  {name}")
     orphans = sum(1 for r in items if not memb.get(r[0]))
     report_allcaps()
+    if registry is not None:
+        _keys.save(registry, args.keys)
+        labels = {"new": "new entry", "inherited": "inherited (replaces a retired record)",
+                  "pinned": "pinned in Zotero", "retired": "retired (no longer exported)"}
+        for kind in ("new", "inherited", "pinned", "retired"):
+            ev = [e for e in events if e[0] == kind]
+            if ev:
+                print(f"\n{len(ev)} key(s) {labels[kind]}:")
+                for _, key, title in sorted(ev, key=lambda e: e[1]):
+                    print(f"  {key:40} {title[:60]}")
     print(f"\n{written} files, {total} entries -> {args.output}")
     if orphans:
         print(f"{orphans} item(s) in no collection, therefore not exported")

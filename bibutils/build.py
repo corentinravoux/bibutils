@@ -386,12 +386,17 @@ def trim_entries(text, source, state):
         # BibTeX keeps only one of them. Keep the first and skip the rest.
         if DO["repeated-keys"] and key in state["keys"]:
             first_source, first_n = state["keys"][key]
+            # the same item filed in two collections: identical entry, not a clash
+            if state["contents"].get(key) == fields:
+                state["same_item"] = state.get("same_item", 0) + 1
+                continue
             note = f"{key}: kept from {first_source}, skipped in {source}"
             if first_n != len(fields):
                 note += f" (differing content: {first_n} vs {len(fields)} fields)"
             state["repeated_keys"].append(note)
             continue
         state["keys"][key] = (source, len(fields))
+        state["contents"][key] = fields
 
         n_entries += 1
         kept, seen_names = [], set()
@@ -645,6 +650,7 @@ def build(source_dir, out_dir, prefix="bibli_hdr", n_chunks=N_CHUNKS, disable=()
 
     state = {
         "keys": {},            # citation key -> (topic file, number of fields)
+        "contents": {},        # citation key -> its fields, to tell a copy from a clash
         "fingerprints": {},    # (field, value) -> citation key
         "repeated_keys": [],   # same key exported into two topic files
         "repeated_fields": [], # same field twice inside one entry

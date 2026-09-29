@@ -16,3 +16,4 @@ overleaf_repo = "~/overleaf/<project-id>"            # local git clone of the pr
 branch        = "main"
 commit_message = "Update bibliography from Zotero export"
 disable       = []                                   # e.g. ["fix-allcaps", "math-cleanup"]
+keys_file     = "~/Documents/Biblio/bibli_hdr.citekeys.json"   # citation-key registry: keep it

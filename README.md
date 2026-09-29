@@ -42,6 +42,27 @@ git config --global credential.https://git.overleaf.com.helper \
     "store --file ~/.config/git/credentials-overleaf"   # file mode 600
 ```
 
+## Citation keys: add, replace, edit — citations keep working
+
+`bibutils run` keeps a key registry (`keys_file` in the profile), one entry per
+Zotero item, so keys are unique across the whole library and never move:
+
+- a new entry gets the Zotero-pattern key, or the first free `-1`, `-2`, … if
+  that key is, or ever was, used by another paper — it is never dropped;
+- a re-imported paper (same DOI or arXiv id) replacing a record you removed
+  inherits the old key, so `\cite{...}` keeps working;
+- editing an item's date or title does not rename its key;
+- a key pinned in Zotero (Citation Key field) always wins.
+
+Each run lists the keys given to new entries, and `run --push` refuses to push
+when the manuscript cites a key the bibliography lacks. To start a registry
+from an existing setup without moving any key:
+
+```bash
+bibutils keys-seed REGISTRY zotero.sqlite --status active      # today's keys
+bibutils keys-seed REGISTRY old-backup.sqlite --status retired # optional history
+```
+
 ## Cleaning steps
 
 All on by default; each can be switched off with `--no-<step>` (on `run`,

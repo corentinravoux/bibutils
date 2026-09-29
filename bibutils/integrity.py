@@ -293,8 +293,11 @@ def check(bib_path, items, verified_arxiv=None):
 
 
 # ------------------------------------------------- Zotero item behind each key
-def zotero_items(database):
+def zotero_items(database, registry=None):
     """{key: item} for every key of the build, reproducing the export exactly.
+
+    With a key registry (bibutils.keys), keys come from it, as in the export;
+    the registry passed in is not modified.
 
     Keys are allocated per collection file and the build keeps the first file
     (sorted) holding a key; so does this. Also returns the keys held by two
@@ -302,6 +305,17 @@ def zotero_items(database):
     """
     from . import zotero as z
     lib = z.Library(database)
+    if registry is not None:
+        import copy
+        from . import keys as _keys
+        assigned, _ = _keys.assign(lib, copy.deepcopy(registry))
+        items = {}
+        for iid, key in assigned.items():
+            (typ,), = lib.db.execute("select t.typeName from items i join itemTypes t "
+                                     "on t.itemTypeID=i.itemTypeID where i.itemID=?", (iid,))
+            items[key] = dict(iid=iid, type=typ, file=None, fields=lib.fields(iid),
+                              creators=[list(c) for c in lib.creators(iid)])
+        return items, []
     paths, memb = lib.collections(), lib.membership()
     rows = sorted(lib.items(), key=lambda r: r[0])
     files = {}
