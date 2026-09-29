@@ -763,8 +763,9 @@ def main(argv=None):
         _keys.save(registry, args.keys)
         labels = {"new": "new entry", "inherited": "inherited (replaces a retired record)",
                   "pinned": "pinned in Zotero", "retired": "retired (no longer exported)",
+                  "renamed": "back to the plain key (duplicate merged)",
                   "replaced": "dropped: record merged into another, update your \\cite"}
-        for kind in ("new", "inherited", "pinned", "retired", "replaced"):
+        for kind in ("new", "inherited", "pinned", "retired", "renamed", "replaced"):
             ev = [e for e in events if e[0] == kind]
             if ev:
                 print(f"\n{len(ev)} key(s) {labels[kind]}:")

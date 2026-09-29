@@ -14,9 +14,12 @@ of them. The registry removes that failure mode for good:
     its key, so citations keep working across the replacement;
   - a key pinned in Zotero (citationKey field, or "Citation Key:" in Extra)
     always wins;
-  - when a record disappears but its paper is still in the library under
-    another key (a merged duplicate), the old key is dropped and reported
-    together with the key to cite instead; nothing is written under it.
+  - when duplicates are merged, the survivor takes back the plain key if it
+    only held a "-N" variant of it (one paper, one entry, the key Zotero
+    would give it); the "-N" key is then released and never reused;
+  - otherwise, when a record disappears but its paper is still in the
+    library under another key, the old key is dropped and reported with the
+    key to cite instead; nothing is written under it.
 
 The registry is a JSON file keyed by Zotero's own item key (8 characters,
 stable for the life of the item). Retired entries are kept for ever: they
@@ -82,7 +85,8 @@ def assign(lib, reg):
     maps a dropped key to the itemID now holding the same paper.
     """
     entries = reg["entries"]
-    used = {e["key"] for e in entries.values()}
+    released = reg.setdefault("released", [])     # keys given up, never reused
+    used = {e["key"] for e in entries.values()} | set(released)
     rows = exported_rows(lib)
     exported = {ikey for _, ikey, _, _ in rows}
     retired = {zk: e for zk, e in entries.items() if zk not in exported}
@@ -141,9 +145,24 @@ def assign(lib, reg):
         if zk in taken_by_successor or e["key"] in active:
             continue
         iid = (e.get("doi") and by_doi.get(e["doi"])) or (e.get("arxiv") and by_arxiv.get(e["arxiv"]))
-        if iid:
-            replaced[e["key"]] = iid
-            events.append(("replaced", e["key"], f"cite {keys[iid]} instead"))
+        if not iid:
+            continue
+        old, cur = e["key"], keys[iid]
+        survivor = next(r[1] for r in rows if r[0] == iid)
+        pinned = cur in (lib.fields(iid).get("citationKey"),)
+        if not pinned and re.fullmatch(re.escape(old) + r"-\d+", cur):
+            # merged duplicate: the survivor is the one entry of this paper,
+            # so it takes back the plain key; its "-N" key is retired for good
+            keys[iid] = old
+            entries[survivor]["key"] = old
+            del active[cur]
+            active[old] = survivor
+            released.append(cur)
+            e["successor"] = survivor
+            events.append(("renamed", old, f"was {cur} (duplicate merged)"))
+        else:
+            replaced[old] = iid
+            events.append(("replaced", old, f"cite {cur} instead"))
     return keys, events, replaced
 
 

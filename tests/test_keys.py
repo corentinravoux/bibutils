@@ -100,12 +100,25 @@ def test_pinned_key_wins_and_a_duplicate_pin_is_refused():
         keys.assign(lib, reg)
 
 
-def test_merged_duplicate_reports_the_key_to_cite_instead():
+def test_merged_duplicate_gets_the_plain_key_back():
     lib = library()
     lib.add(6, "FFFF6666", "Planck 2015 results. XVI. Isotropy", "2016", "Collaboration", "10.1/xvi")
-    reg, k = first_run(lib)                             # twin gets collaboration_planck_2016-1
-    lib.memb[1] = []                                    # the cited record is merged away
+    reg, k = first_run(lib)
+    assert k[6] == "collaboration_planck_2016-1"        # two copies: the twin is suffixed
+    lib.memb[1] = []                                    # merged: one copy left
     k, events, replaced = keys.assign(lib, reg)
-    assert replaced == {"collaboration_planck_2016": 6} # reported, with its replacement
-    assert "collaboration_planck_2016" not in k.values()  # but no longer exported
-    assert k[6] == "collaboration_planck_2016-1"        # and no key moved
+    assert k[6] == "collaboration_planck_2016"          # one entry, the plain key
+    assert replaced == {}
+    lib.add(7, "GGGG7777", "Planck 2015 results. XIX. Other", "2016", "Collaboration", "10.1/xix")
+    k, _, _ = keys.assign(lib, reg)
+    assert k[7] == "collaboration_planck_2016-2"        # the released "-1" is never reused
+
+
+def test_merged_record_with_another_key_is_reported():
+    lib = library()
+    lib.add(8, "HHHH8888", "Isotropy of the CMB, Planck XVI", "2016", "Ade", "10.1/xvi")
+    reg, k = first_run(lib)
+    lib.memb[1] = []                                    # merged into a record with its own key
+    k, events, replaced = keys.assign(lib, reg)
+    assert replaced == {"collaboration_planck_2016": 8}
+    assert k[8] == "ade_isotropy_2016"
