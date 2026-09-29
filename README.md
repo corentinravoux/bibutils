@@ -1,15 +1,20 @@
 # bibutils
 
-Zotero → BibTeX → Overleaf, in one command, with proof that the cleaning
-changed nothing but the LaTeX.
+Zotero → BibTeX → Overleaf, in one command:
+
+```bash
+bibutils run <profile> --push      # export Zotero, build the .bib, push it to Overleaf
+```
+
+Checks are optional (`--verify`, `bibutils verify`), never in the way.
 
 - **export**: reads `zotero.sqlite` directly (no GUI, no plugin), one `.bib` per
   collection, citation keys identical to Zotero's own BibTeX export.
 - **build**: merges them into the bibliography of a project, with optional
   cleaning steps (below).
-- **verify**: compares every field of every entry with Zotero, and optionally
-  checks every arXiv id and DOI online (does the link exist, and does it point
-  to *this* paper?).
+- **verify** (optional): compares every field of every entry with Zotero, and
+  can check every arXiv id and DOI online (does the link exist, and does it
+  point to *this* paper?).
 - **push**: publishes to an Overleaf git clone (fetch, merge, commit, push).
 - **publist**: compares a LaTeX publication list with an INSPIRE-HEP author record.
 
@@ -54,8 +59,7 @@ Zotero item, so keys are unique across the whole library and never move:
 - editing an item's date or title does not rename its key;
 - a key pinned in Zotero (Citation Key field) always wins.
 
-Each run lists the keys given to new entries, and `run --push` refuses to push
-when the manuscript cites a key the bibliography lacks. To start a registry
+Each run lists the keys given to new entries. To start a registry
 from an existing setup without moving any key:
 
 ```bash
@@ -84,9 +88,11 @@ All on by default; each can be switched off with `--no-<step>` (on `run`,
 | `math-cleanup` | build | `\ensuremath{X}` inside `$…$` → `X` |
 | `ascii-names` | build | accented author letters → LaTeX accents (BibTeX initials) |
 
-## Verification
+## Verification (optional)
 
 ```bash
+bibutils run <profile> --verify [--push]                  # + the two checks below;
+                                                          #   a failure blocks the push
 bibutils verify out/bibli_hdr_0.bib                       # offline, against Zotero
 bibutils verify out/bibli_hdr_0.bib --online --cache ~/.cache/bibutils \
                 --cited path/to/latex/project             # + every link, cited flagged
@@ -95,8 +101,9 @@ bibutils verify out/bibli_hdr_0.bib --online --cache ~/.cache/bibutils \
 The offline check compares authors, title, journal, volume, number, pages,
 year, DOI, URL, publisher, … after normalising away LaTeX, accents, case and
 punctuation, plus a strict pass on numbers and relation signs (`z=2.3` must
-not become `z=23`). It exits non-zero on any unexplained difference;
-`bibutils run` refuses to push in that case.
+not become `z=23`). `run --verify` also lists the keys the LaTeX project
+cites that the bibliography lacks. Set `verify = true` in a profile to make
+it the default for that project.
 
 The online check reports links that do not resolve, links that resolve to a
 different paper (title/author/year, errata, book reviews), entries with no

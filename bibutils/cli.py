@@ -109,17 +109,44 @@ def cmd_keys_seed(argv):
     return 0
 
 
+def verify_build(p, db, pushing):
+    """Optional checks: the bib against Zotero, the cited keys against the bib."""
+    from . import integrity, keys as _keys
+    say = lambda s: print(f"\n==> {s}")
+    bibs = [os.path.join(p["out_dir"], f"{p['prefix']}_{i}.bib") for i in range(p["chunks"])]
+    failed = False
+    if p["chunks"] == 1:
+        say("verify: bib against Zotero")
+        items, _ = integrity.zotero_items(db, _keys.load(p["keys_file"]))
+        bib, problems, intended = integrity.check(bibs[0], items)
+        integrity.print_report(bib, problems, intended)
+        failed |= bool(problems)
+    if p.get("overleaf_repo"):
+        built = set().union(*(integrity.read_bib(b) for b in bibs))
+        cited = cited_keys(p["overleaf_repo"])
+        missing = sorted(cited - built)
+        say(f"verify: {len(cited)} cited keys, {len(missing)} missing from the bib")
+        for k in missing:
+            print(f"  \\cite{{{k}}} has no entry")
+        failed |= bool(missing)
+    if failed and pushing:
+        sys.exit("error: verification failed (above); not pushed")
+
+
 def cmd_run(argv, profile_name=None):
     ap = argparse.ArgumentParser(
         prog="bib-hdr" if profile_name else "bibutils run",
         description="Zotero -> <prefix>_*.bib [-> Overleaf] for one configured project. "
-                    "Every cleaning step can be switched off with --no-<step>.")
+                    "Checks are optional (--verify). Every cleaning step can be "
+                    "switched off with --no-<step>.")
     if not profile_name:
         ap.add_argument("profile")
     ap.add_argument("--push", action="store_true", help="push to the Overleaf clone")
     ap.add_argument("--dry-run", action="store_true", help="with --push: stop before committing")
     ap.add_argument("--no-export", action="store_true", help="rebuild from the exports on disk")
-    ap.add_argument("--no-verify", action="store_true", help="skip the integrity check")
+    ap.add_argument("--verify", action="store_true",
+                    help="also compare the bib with Zotero and the cited keys with the "
+                         "LaTeX project; with --push, do not push if either fails")
     for step in list(_zotero.OPTIONS) + list(_build.CLEANING):
         ap.add_argument(f"--no-{step}", dest="off", action="append_const", const=step)
     a = ap.parse_args(argv)
@@ -135,26 +162,8 @@ def cmd_run(argv, profile_name=None):
     say("building")
     _build.build(p["export_dir"], p["out_dir"], p["prefix"], p["chunks"],
                  [s for s in _build.CLEANING if s in off])
-    if not a.no_verify and p["chunks"] == 1:
-        from . import integrity, keys as _keys
-        say("integrity check against Zotero")
-        items, _ = integrity.zotero_items(db, _keys.load(p["keys_file"]))
-        bib, problems, intended = integrity.check(
-            os.path.join(p["out_dir"], f"{p['prefix']}_0.bib"), items)
-        integrity.print_report(bib, problems, intended)
-        if problems:
-            sys.exit("error: the build altered information (above); not pushed")
-    if p.get("overleaf_repo"):
-        from .integrity import read_bib
-        built = set()
-        for i in range(p["chunks"]):
-            built |= set(read_bib(os.path.join(p["out_dir"], f"{p['prefix']}_{i}.bib")))
-        missing = sorted(cited_keys(p["overleaf_repo"]) - built)
-        say(f"cited keys: {len(cited_keys(p['overleaf_repo']))}, missing from the bib: {len(missing)}")
-        for k in missing:
-            print(f"  \\cite{{{k}}} has no entry")
-        if missing and a.push:
-            sys.exit("error: the manuscript cites keys the bibliography lacks; not pushed")
+    if a.verify or p.get("verify"):
+        verify_build(p, db, a.push)
     if a.push:
         from . import overleaf
         if not p.get("overleaf_repo"):
