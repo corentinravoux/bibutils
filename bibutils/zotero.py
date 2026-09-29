@@ -152,6 +152,22 @@ def cite_key(author, title, date, date_added, used):
     return key
 
 
+def item_key(flds, author, date_added, used):
+    """translators/BibTeX.js buildCiteKey: a pinned key wins.
+
+    A "Citation Key: ..." line in Extra, then the citationKey field, is used
+    verbatim -- and, as in Zotero, is not registered in `used`. Otherwise the
+    key is generated from the pattern.
+    """
+    for line in (flds.get("extra") or "").split("\n"):
+        m = re.match(r"\s*citation key\s*:\s*(\S.*?)\s*$", line, re.I)
+        if m:
+            return m.group(1)
+    if flds.get("citationKey"):
+        return flds["citationKey"]
+    return cite_key(author, flds.get("title", ""), flds.get("date", ""), date_added, used)
+
+
 # translators/BibTeX.js, alwaysMap + escapeSpecialCharacters. Without this the
 # .bib carries raw "&", "%", "_" and "$" straight into BibTeX, which is what
 # produces "Misplaced alignment tab character &", a "%" that comments out the
@@ -263,6 +279,9 @@ def arxiv_id(flds):
                 "journalAbbreviation"):
         for m in re.finditer(r"arxiv[:\s]*\s*(\S+)", flds.get(src, ""), re.I):
             add(src, m.group(1))
+    # "_eprint: 1611.00037", as written by ADS/BibTeX imports
+    for m in re.finditer(r"(?:^|\n)\s*_?eprint\s*:\s*(\S+)", flds.get("extra", ""), re.I):
+        add("extra", m.group(1))
     if len(found) > 1:
         EPRINT_CONFLICTS.append((flds.get("title", ""), found))
         return None
@@ -632,7 +651,7 @@ def main(argv=None):
         flds, crs = cache[iid]
         author = next((c[1] for c in crs if c[0] == "author"), None) or \
                  (crs[0][1] if crs else None)
-        key = cite_key(author, flds.get("title", ""), flds.get("date", ""), added, used)
+        key = item_key(flds, author, added, used)
         return key, entry(typ, key, flds, crs)
 
     os.makedirs(args.output, exist_ok=True)

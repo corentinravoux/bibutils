@@ -38,6 +38,8 @@ def arxiv_candidates(f):
     for src in ("extra", "publicationTitle", "pages", "reportNumber", "journalAbbreviation"):
         for m in re.finditer(r"arxiv[:\s]*\s*(\S+)", f.get(src, ""), re.I):
             add(src, m.group(1))
+    for m in re.finditer(r"(?:^|\n)\s*_?eprint\s*:\s*(\S+)", f.get("extra", ""), re.I):
+        add("extra", m.group(1))
     return out
 
 
@@ -313,8 +315,7 @@ def zotero_items(database):
             f, crs = lib.fields(iid), lib.creators(iid)
             author = next((c[1] for c in crs if c[0] == "author"), None) or \
                 (crs[0][1] if crs else None)
-            keys.append((z.cite_key(author, f.get("title", ""), f.get("date", ""),
-                                    added, used), iid, typ))
+            keys.append((z.item_key(f, author, added, used), iid, typ))
         files[name] = keys
     first, clashes = {}, []
     for name in sorted(files):
