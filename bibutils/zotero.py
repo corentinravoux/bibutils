@@ -676,7 +676,7 @@ def main(argv=None):
         text = entry(typ, key, flds, crs)
         # old keys of the same paper (merged duplicates) stay citable
         for old in alias_of.get(iid, []):
-            text += "\n\n" + entry(typ, old, flds, crs)
+            text += f"\n\n@comment{{bibutils-alias {old} -> {key}}}\n" + entry(typ, old, flds, crs)
         return key, text
 
     os.makedirs(args.output, exist_ok=True)
