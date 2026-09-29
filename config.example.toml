@@ -1,0 +1,18 @@
+# Copy to ~/.config/bibutils/config.toml (or point $BIBUTILS_CONFIG at it).
+# One [profile.<name>] per LaTeX/Overleaf project; run it with
+#     bibutils run <name> [--push]
+# Never put a token here: Overleaf authentication goes through git's
+# credential helper (see bibutils/overleaf.py).
+
+[zotero]
+database = "~/Zotero/zotero.sqlite"
+
+[profile.hdr]
+export_dir    = "~/Documents/Biblio/bib_files"       # one .bib per Zotero collection
+out_dir       = "~/Documents/Biblio/bib_files/out"   # the built <prefix>_*.bib
+prefix        = "bibli_hdr"                          # \bibliography{bibli_hdr_0}
+chunks        = 1
+overleaf_repo = "~/overleaf/<project-id>"            # local git clone of the project
+branch        = "main"
+commit_message = "Update bibliography from Zotero export"
+disable       = []                                   # e.g. ["fix-allcaps", "math-cleanup"]

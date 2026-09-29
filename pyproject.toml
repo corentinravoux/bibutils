@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools >= 64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bibutils"
+dynamic = ["version"]
+authors = [{name = "Corentin Ravoux"}]
+description = "Zotero to BibTeX to Overleaf, with integrity and link checks"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+dependencies = ["tomli; python_version < '3.11'"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+bibutils = "bibutils.cli:main"
+bib-hdr = "bibutils.cli:hdr"
+
+[tool.setuptools.dynamic]
+version = {attr = "bibutils.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["bibutils*"]
