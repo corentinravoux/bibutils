@@ -13,7 +13,10 @@ of them. The registry removes that failure mode for good:
     is no longer exported -- a re-import replacing an old record -- inherits
     its key, so citations keep working across the replacement;
   - a key pinned in Zotero (citationKey field, or "Citation Key:" in Extra)
-    always wins.
+    always wins;
+  - when a record disappears but its paper is still in the library under
+    another key (a merged duplicate), the old key stays usable as an alias:
+    the surviving entry is written under both keys.
 
 The registry is a JSON file keyed by Zotero's own item key (8 characters,
 stable for the life of the item). Retired entries are kept for ever: they
@@ -74,8 +77,9 @@ def exported_rows(lib):
 def assign(lib, reg):
     """{itemID: key} for every exported item; updates reg in place.
 
-    Returns (keys, events): events lists what this run decided, for the report
-    ("new", "inherited", "pinned", "retired").
+    Returns (keys, events, aliases): events lists what this run decided, for
+    the report ("new", "inherited", "pinned", "retired", "alias"); aliases
+    maps a retired key to the itemID now holding the same paper.
     """
     entries = reg["entries"]
     used = {e["key"] for e in entries.values()}
@@ -124,7 +128,23 @@ def assign(lib, reg):
         if e.get("status") == "active":
             e["status"] = "retired"
             events.append(("retired", e["key"], ""))
-    return keys, events
+    # a retired record whose paper survives under another key: keep its key
+    by_doi, by_arxiv = {}, {}
+    for iid, ikey, _, _ in rows:
+        e = entries[ikey]
+        if e.get("doi"):
+            by_doi.setdefault(e["doi"], iid)
+        if e.get("arxiv"):
+            by_arxiv.setdefault(e["arxiv"], iid)
+    aliases = {}
+    for zk, e in retired.items():
+        if zk in taken_by_successor or e["key"] in active:
+            continue
+        iid = (e.get("doi") and by_doi.get(e["doi"])) or (e.get("arxiv") and by_arxiv.get(e["arxiv"]))
+        if iid:
+            aliases[e["key"]] = iid
+            events.append(("alias", e["key"], f"same paper as {keys[iid]}"))
+    return keys, events, aliases
 
 
 def seed(lib, reg, status="active"):

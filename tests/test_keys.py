@@ -56,7 +56,7 @@ def test_new_entry_that_collides_gets_its_own_key():
     lib = library()
     reg, before = first_run(lib)
     lib.add(3, "CCCC3333", "Planck 2015 results. XIII. Parameters", "2016", "Collaboration", "10.1/xiii")
-    k, events = keys.assign(lib, reg)
+    k, events, _ = keys.assign(lib, reg)
     assert k[1] == before[1]                            # the cited key did not move
     assert k[3] == "collaboration_planck_2016-1"        # and the newcomer is not dropped
     assert len(set(k.values())) == len(k)
@@ -69,7 +69,7 @@ def test_reimported_paper_inherits_the_old_key():
     lib.memb[2] = []                                    # old record taken out of its collection
     lib.add(4, "DDDD4444", "Planck 2015 results. XXIV. Clusters", "2016", "Collaboration",
             "10.1/XXIV", coll=(2,))                     # journal version, same DOI, now 2016
-    k, events = keys.assign(lib, reg)
+    k, events, _ = keys.assign(lib, reg)
     assert k[4] == before[2] == "collaboration_planck_2015"
     assert 2 not in k
 
@@ -86,7 +86,7 @@ def test_a_retired_key_is_never_given_to_another_paper():
     reg, before = first_run(lib)
     lib.memb[2] = []                                    # retired, and no successor
     lib.add(5, "EEEE5555", "Planck 2015 results. XXV. Other", "2015", "Collaboration", "10.1/xxv")
-    k, _ = keys.assign(lib, reg)
+    k, _, _ = keys.assign(lib, reg)
     assert k[5] != "collaboration_planck_2015"
 
 
@@ -98,3 +98,13 @@ def test_pinned_key_wins_and_a_duplicate_pin_is_refused():
     lib.flds[2]["citationKey"] = "planck_xvi"
     with pytest.raises(SystemExit):
         keys.assign(lib, reg)
+
+
+def test_merged_duplicate_keeps_its_key_as_alias():
+    lib = library()
+    lib.add(6, "FFFF6666", "Planck 2015 results. XVI. Isotropy", "2016", "Collaboration", "10.1/xvi")
+    reg, k = first_run(lib)                             # twin gets collaboration_planck_2016-1
+    lib.memb[1] = []                                    # the cited record is merged away
+    k, events, aliases = keys.assign(lib, reg)
+    assert aliases == {"collaboration_planck_2016": 6}  # old key still resolves, to the survivor
+    assert k[6] == "collaboration_planck_2016-1"        # and no key moved
