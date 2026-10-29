@@ -1,5 +1,7 @@
 # bibutils
 
+[![tests](https://github.com/corentinravoux/bibutils/actions/workflows/tests.yml/badge.svg)](https://github.com/corentinravoux/bibutils/actions/workflows/tests.yml)
+
 Zotero → BibTeX → Overleaf, in one command:
 
 ```bash
